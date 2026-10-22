@@ -118,6 +118,41 @@ class HotelAPITests(APITestCase):
             self.hotel.rooms.filter(room_number="202").exists()
         )
 
+    def test_manager_cannot_move_room_to_another_managers_hotel(self):
+        own_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="My Hotel",
+            description="My hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="My hotel address",
+            stars=3,
+        )
+
+        room = Room.objects.create(
+            hotel=own_hotel,
+            room_type="double",
+            room_number="501",
+            capacity=2,
+            price_per_night="3000.00",
+            description="My room",
+            is_available=True,
+        )
+
+        response = self.client.patch(
+            f"/api/rooms/{room.id}/",
+            {"hotel": self.hotel.id},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        room.refresh_from_db()
+        self.assertEqual(room.hotel_id, own_hotel.id)
+
     def test_manager_can_add_room_to_own_hotel_through_nested_endpoint(self):
         own_hotel = Hotel.objects.create(
             manager=self.manager,

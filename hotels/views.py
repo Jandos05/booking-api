@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_date
 from django.db import transaction
 from hotels.models import Room
 from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Hotel, Room
 from bookings.models import Booking
@@ -139,6 +140,23 @@ class RoomViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied(
                 'You can only add rooms to your own hotels.'
+            )
+
+        serializer.save()
+
+
+    def perform_update(self, serializer):
+        hotel = serializer.validated_data.get(
+            "hotel",
+            serializer.instance.hotel,
+        )
+
+        if (
+            self.request.user.role != "admin"
+            and hotel.manager != self.request.user
+        ):
+            raise PermissionDenied(
+                "You can only move rooms to your own hotels."
             )
 
         serializer.save()
