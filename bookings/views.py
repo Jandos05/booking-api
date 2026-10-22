@@ -9,7 +9,12 @@ from .models import Booking
 from .serializers import BookingSerializer
 
 
-class BookingViewSet(viewsets.ModelViewSet):
+class BookingViewSet(
+    viewsets.GenericViewSet,
+    viewsets.mixins.CreateModelMixin,
+    viewsets.mixins.ListModelMixin,
+    viewsets.mixins.RetrieveModelMixin,
+):
     serializer_class = BookingSerializer
     permission_classes = [BookingPermission]
 
@@ -42,20 +47,21 @@ class BookingViewSet(viewsets.ModelViewSet):
             'room__hotel',
         ).order_by('-created_at')
 
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         booking = create_booking(
             user=request.user,
-            serializer=serializer,
+            validated_data=serializer.validated_data,
         )
 
-        response_serializer = self.get_serializer(booking)
-        headers = self.get_success_headers(response_serializer.data)
+        output_serializer = self.get_serializer(booking)
 
         return Response(
-            response_serializer.data,
+            output_serializer.data,
             status=status.HTTP_201_CREATED,
-            headers=headers,
         )
 
     @action(detail=True, methods=['post'])

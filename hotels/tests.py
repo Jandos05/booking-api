@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
+from datetime import date, timedelta
+
+from bookings.models import Booking
 
 from hotels.models import Hotel, Room
 
@@ -278,6 +281,40 @@ class HotelAPITests(APITestCase):
         self.assertEqual(response.data["count"], 0)
 
 
+    def test_hotel_search_includes_room_with_cancelled_booking(self):
+        room = Room.objects.create(
+            hotel=self.hotel,
+            room_type="double",
+            room_number="109",
+            capacity=2,
+            price_per_night="3000.00",
+            description="Room with cancelled booking",
+            is_available=True,
+        )
+
+        check_in = date.today() + timedelta(days=10)
+        check_out = check_in + timedelta(days=2)
+
+        Booking.objects.create(
+            user=self.manager,
+            room=room,
+            check_in=check_in,
+            check_out=check_out,
+            guests=2,
+            price_per_night="3000.00",
+            total_price="6000.00",
+            status=Booking.Status.CANCELLED,
+        )
+
+        response = self.client.get(
+            f"/api/hotels/?check_in={check_in.isoformat()}"
+            f"&check_out={check_out.isoformat()}"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.hotel.id)
+
 
 
     def test_hotel_search_includes_hotel_if_another_room_is_free(self):
@@ -524,3 +561,216 @@ class HotelAPITests(APITestCase):
         self.assertTrue(
             self.hotel.rooms.filter(room_number="303").exists()
         )
+
+    def test_invalid_search_parameters_return_400(self):
+
+        invalid_params = [
+            "?guests=abc",
+            "?guests=0",
+            "?stars=abc",
+            "?stars=7",
+            "?min_price=-100",
+            "?max_price=-5",
+            "?min_price=5000&max_price=1000",
+            "?ordering=bogus",
+        ]
+
+
+        for params in invalid_params:
+            with self.subTest(params=params):
+                response = self.client.get(
+                    f"/api/hotels/{params}"
+                )
+                self.assertEqual(
+                    response.status_code,
+                    status.HTTP_400_BAD_REQUEST,
+                    msg=f"Параметры {params} должны возвращать 400",
+                )
+
+
+    def test_invalid_ordering_returns_400(self):
+        response = self.client.get(
+            "/api/hotels/?ordering=bogus"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+
+    def test_max_price_zero_is_applied(self):
+        Room.objects.create(
+            hotel=self.hotel,
+            room_type="double",
+            room_number="110",
+            capacity=2,
+            price_per_night="3000.00",
+            description="Paid room",
+            is_available=True,
+        )
+
+        free_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="Zero Price Hotel",
+            description="Hotel with a zero-price room",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="Zero price address",
+            stars=3,
+        )
+
+        Room.objects.create(
+            hotel=free_hotel,
+            room_type="single",
+            room_number="204",
+            capacity=1,
+            price_per_night="0.00",
+            description="Zero-price room",
+            is_available=True,
+        )
+
+        response = self.client.get(
+            "/api/hotels/?max_price=0"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            response.data["results"][0]["id"],
+            free_hotel.id,
+        )
+
+
+    def test_room_with_booking_cannot_be_deleted(self):
+        room = self._create_room_with_booking()
+
+        response = self.client.delete(
+            f"/api/rooms/{room.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(Room.objects.filter(id=room.id).exists())
+
+    def test_hotel_with_booking_cannot_be_deleted(self):
+        room = self._create_room_with_booking()
+        hotel_id = room.hotel_id
+
+        response = self.client.delete(
+            f"/api/hotels/{hotel_id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(Hotel.objects.filter(id=hotel_id).exists())
+        self.assertTrue(Room.objects.filter(id=room.id).exists())
+
+    def _create_room_with_booking(self):
+        hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="Hotel With Booking",
+            description="Test hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="Test address",
+            stars=3,
+        )
+
+        room = Room.objects.create(
+            hotel=hotel,
+            room_type="double",
+            room_number="901",
+            capacity=2,
+            price_per_night="3000.00",
+            description="Test room",
+            is_available=True,
+        )
+
+        customer = User.objects.create_user(
+            username="booking_customer",
+            password="test_password123",
+            role="customer",
+        )
+
+        check_in = date.today() + timedelta(days=10)
+        check_out = check_in + timedelta(days=2)
+
+        Booking.objects.create(
+            user=customer,
+            room=room,
+            check_in=check_in,
+            check_out=check_out,
+            guests=2,
+            price_per_night="3000.00",
+            total_price="6000.00",
+        )
+
+        return room
+
+
+    def test_room_number_must_be_unique_within_hotel(self):
+        own_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="Unique Room Hotel",
+            description="Test hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="Unique room address",
+            stars=3,
+        )
+
+        Room.objects.create(
+            hotel=own_hotel,
+            room_type="double",
+            room_number="101",
+            capacity=2,
+            price_per_night="3000.00",
+        )
+
+        with self.assertRaises(Exception):
+            Room.objects.create(
+                hotel=own_hotel,
+                room_type="single",
+                room_number="101",
+                capacity=1,
+                price_per_night="2000.00",
+            )
+
+    def test_same_room_number_is_allowed_in_different_hotels(self):
+        first_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="First Hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="First address",
+            stars=3,
+        )
+
+        second_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="Second Hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="Second address",
+            stars=3,
+        )
+
+        Room.objects.create(
+            hotel=first_hotel,
+            room_type="double",
+            room_number="101",
+            capacity=2,
+            price_per_night="3000.00",
+        )
+
+        room = Room.objects.create(
+            hotel=second_hotel,
+            room_type="double",
+            room_number="101",
+            capacity=2,
+            price_per_night="3000.00",
+        )
+
+        self.assertIsNotNone(room.pk)

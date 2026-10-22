@@ -9,12 +9,20 @@ from django.db import transaction
 from hotels.models import Room
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
+from django.db.models.deletion import ProtectedError
+from rest_framework.exceptions import APIException
+from decimal import Decimal, InvalidOperation
 
 from .models import Hotel, Room
 from bookings.models import Booking
 from .permissions import IsHotelManagerOrReadOnly
 from .serializers import HotelSerializer, RoomSerializer
 
+
+class ConflictError(APIException):
+    status_code = 409
+    default_detail = 'Нельзя удалить объект, связанный с бронированиями.'
+    default_code = 'conflict'
 
 class HotelViewSet(viewsets.ModelViewSet):
     serializer_class = HotelSerializer
@@ -29,6 +37,37 @@ class HotelViewSet(viewsets.ModelViewSet):
             return queryset
         params = self.request.query_params
 
+        ordering = params.get('ordering')
+
+        if ordering is not None:
+            allowed_fields = set(self.ordering_fields)
+            ordering_terms = [
+                field.strip() for field in ordering.split(',')
+            ]
+
+            invalid_fields = [
+                field
+                for field in ordering_terms
+                if (
+                    not field
+                    or field == '-'
+                    or field.startswith('--')
+                    or (
+                        field[1:]
+                        if field.startswith('-')
+                        else field
+                    ) not in allowed_fields
+                )
+            ]
+
+            if invalid_fields:
+                raise ValidationError({
+                    'ordering': (
+                        'Недопустимое поле сортировки: '
+                        + ', '.join(invalid_fields)
+                    )
+                })
+
         city = params.get('city')
         country = params.get('country')
         stars = params.get('stars')
@@ -36,9 +75,94 @@ class HotelViewSet(viewsets.ModelViewSet):
         max_price = params.get('max_price')
         guests = params.get('guests')
 
-        check_in = parse_date(params.get('check_in', ''))
-        check_out = parse_date(params.get('check_out', ''))
+        if stars is not None:
+            try:
+                stars = int(stars)
+            except (TypeError, ValueError):
+                raise ValidationError({
+                    'stars': 'Укажите целое число от 1 до 5.'
+                })
 
+            if stars < 1 or stars > 5:
+                raise ValidationError({
+                    'stars': 'Количество звёзд должно быть от 1 до 5.'
+                })
+
+        if guests is not None:
+            try:
+                guests = int(guests)
+            except (TypeError, ValueError):
+                raise ValidationError({
+                    'guests': 'Укажите целое положительное число.'
+                })
+
+            if guests < 1:
+                raise ValidationError({
+                    'guests': 'Количество гостей должно быть больше нуля.'
+                })
+
+        for param_name in ('min_price', 'max_price'):
+            value = params.get(param_name)
+
+            if value is not None:
+                try:
+                    price = Decimal(value)
+                except (InvalidOperation, ValueError):
+                    raise ValidationError({
+                        param_name: 'Укажите корректную цену.'
+                    })
+
+                if not price.is_finite() or price < 0:
+                    raise ValidationError({
+                        param_name: (
+                            'Цена должна быть конечным '
+                            'неотрицательным числом.'
+                        )
+                    })
+
+                if param_name == 'min_price':
+                    min_price = price
+                else:
+                    max_price = price
+
+        if (
+            min_price is not None
+            and max_price is not None
+            and min_price > max_price
+        ):
+            raise ValidationError({
+                'max_price': 'Максимальная цена не может быть меньше минимальной.'
+            })
+
+        check_in_raw = params.get('check_in')
+        check_out_raw = params.get('check_out')
+
+        check_in = None
+        check_out = None
+
+        if check_in_raw is not None:
+            check_in = parse_date(check_in_raw)
+            if check_in is None:
+                raise ValidationError({
+                    'check_in': 'Используйте формат даты YYYY-MM-DD.'
+                })
+
+        if check_out_raw is not None:
+            check_out = parse_date(check_out_raw)
+            if check_out is None:
+                raise ValidationError({
+                    'check_out': 'Используйте формат даты YYYY-MM-DD.'
+                })
+
+        if (check_in is None) != (check_out is None):
+            raise ValidationError(
+                'Укажите обе даты: check_in и check_out.'
+            )
+
+        if check_in is not None and check_out <= check_in:
+            raise ValidationError({
+                'check_out': 'Дата выезда должна быть позже даты заезда.'
+            })
         if city:
             queryset = queryset.filter(city__iexact=city)
 
@@ -55,10 +179,10 @@ class HotelViewSet(viewsets.ModelViewSet):
             is_available=True,
         )
 
-        if min_price:
+        if min_price is not None:
             rooms = rooms.filter(price_per_night__gte=min_price)
 
-        if max_price:
+        if max_price is not None:
             rooms = rooms.filter(price_per_night__lte=max_price)
 
         if guests:
@@ -93,6 +217,15 @@ class HotelViewSet(viewsets.ModelViewSet):
         return queryset
 
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            raise ConflictError()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_create(self, serializer):
         serializer.save(manager=self.request.user)
@@ -102,22 +235,22 @@ class HotelViewSet(viewsets.ModelViewSet):
         hotel = self.get_object()
 
         if (
-            request.user.role != "admin"
-            and hotel.manager != request.user
+                request.user.role != "admin"
+                and hotel.manager != request.user
         ):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied(
                 'You can only add rooms to your own hotels.'
             )
 
-        serializer = RoomSerializer(
-            data={**request.data, 'hotel': hotel.id}
-        )
+        room_data = request.data.copy()
+        room_data['hotel'] = hotel.id
+
+        serializer = RoomSerializer(data=room_data)
         serializer.is_valid(raise_exception=True)
         serializer.save(hotel=hotel)
 
         return Response(serializer.data, status=201)
-
 
 
 class RoomViewSet(viewsets.ModelViewSet):
@@ -129,6 +262,16 @@ class RoomViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Room.objects.select_related('hotel').all().order_by('id')
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            raise ConflictError()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_create(self, serializer):
         hotel = serializer.validated_data['hotel']

@@ -59,6 +59,11 @@ class Room(models.Model):
 
     class Meta:
         constraints = [
+            models.UniqueConstraint(
+                fields=['hotel', 'room_number'],
+                name='unique_room_number_per_hotel',
+            ),
+
             models.CheckConstraint(
                 condition=models.Q(capacity__gte=1),
                 name='room_capacity_at_least_one',

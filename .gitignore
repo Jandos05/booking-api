@@ -25,3 +25,6 @@ htmlcov/
 
 # Temporary and backup files
 *.bak
+
+# Keep the example environment file in Git
+!.env.example
