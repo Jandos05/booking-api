@@ -570,9 +570,14 @@ class HotelAPITests(APITestCase):
             "?guests=0",
             "?stars=abc",
             "?stars=7",
+            "?min_price=abc",
+            "?max_price=x",
             "?min_price=-100",
             "?max_price=-5",
             "?min_price=5000&max_price=1000",
+            "?check_in=abc",
+            "?check_in=2026-13-40",
+            "?check_out=abc",
             "?ordering=bogus",
         ]
 

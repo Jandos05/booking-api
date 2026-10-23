@@ -141,14 +141,22 @@ class HotelViewSet(viewsets.ModelViewSet):
         check_out = None
 
         if check_in_raw is not None:
-            check_in = parse_date(check_in_raw)
+            try:
+                check_in = parse_date(check_in_raw)
+            except ValueError:
+                check_in = None
+
             if check_in is None:
                 raise ValidationError({
                     'check_in': 'Используйте формат даты YYYY-MM-DD.'
                 })
 
         if check_out_raw is not None:
-            check_out = parse_date(check_out_raw)
+            try:
+                check_out = parse_date(check_out_raw)
+            except ValueError:
+                check_out = None
+
             if check_out is None:
                 raise ValidationError({
                     'check_out': 'Используйте формат даты YYYY-MM-DD.'

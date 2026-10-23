@@ -463,6 +463,30 @@ class BookingAPITests(APITestCase):
             status.HTTP_201_CREATED,
         )
 
+    def test_booking_with_array_payload_returns_400(self):
+        response = self.client.post(
+            "/api/bookings/",
+            [
+                {
+                    "room": self.room.id,
+                    "check_in": str(
+                        timezone.localdate() + timedelta(days=10)
+                    ),
+                    "check_out": str(
+                        timezone.localdate() + timedelta(days=12)
+                    ),
+                    "guests": 2,
+                }
+            ],
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(Booking.objects.count(), 0)
+
 
 
 class ConcurrentBookingTests(TransactionTestCase):
