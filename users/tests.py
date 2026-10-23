@@ -25,6 +25,31 @@ class UserRegistrationTests(APITestCase):
         self.assertEqual(user.role, User.Role.CUSTOMER)
         self.assertTrue(user.check_password("StrongPass123!"))
 
+
+
+    def test_register_rejects_duplicate_email_case_insensitively(self):
+        User.objects.create_user(
+            username="existing_customer",
+            email="customer@example.com",
+            password="StrongPass123!",
+        )
+
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "another_customer",
+                "email": "CUSTOMER@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(
+            User.objects.filter(username="another_customer").exists()
+        )
+
+
     def test_register_rejects_short_password(self):
         response = self.client.post(
             reverse("register"),
