@@ -1,4 +1,4 @@
-from .services import create_booking
+from .services import BookingError, create_booking
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -47,15 +47,24 @@ class BookingViewSet(
             'room__hotel',
         ).order_by('-created_at')
 
-
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        booking = create_booking(
-            user=request.user,
-            validated_data=serializer.validated_data,
-        )
+        try:
+            booking = create_booking(
+                user=request.user,
+                validated_data=serializer.validated_data,
+            )
+        except BookingError as exc:
+            detail = {exc.field: exc.message} if exc.field else {
+                "detail": exc.message
+            }
+
+            return Response(
+                detail,
+                status=exc.status_code,
+            )
 
         output_serializer = self.get_serializer(booking)
 

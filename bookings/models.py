@@ -1,6 +1,8 @@
-
 from django.conf import settings
 from django.db import models
+from django.db.models import F, Func, Q, Value
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateRangeField, RangeOperators
 
 
 class Booking(models.Model):
@@ -43,10 +45,30 @@ class Booking(models.Model):
             f'({self.check_in} — {self.check_out})'
         )
 
+
     class Meta:
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(check_out__gt=models.F('check_in')),
                 name='booking_checkout_after_checkin',
+            ),
+            ExclusionConstraint(
+                expressions=[
+                    ('room', RangeOperators.EQUAL),
+                    (
+                        Func(
+                            F('check_in'),
+                            F('check_out'),
+                            Value('[)'),
+                            function='DATERANGE',
+                            output_field=DateRangeField(),
+                        ),
+                        RangeOperators.OVERLAPS,
+                    ),
+                ],
+                condition=Q(
+                    status__in=['pending', 'confirmed'],
+                ),
+                name='exclude_overlapping_active_bookings',
             ),
         ]

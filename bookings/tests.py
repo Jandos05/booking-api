@@ -3,6 +3,7 @@ from datetime import timedelta
 from threading import Barrier
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 from rest_framework import status
@@ -510,6 +511,42 @@ class ConcurrentBookingTests(TransactionTestCase):
             description="Room for concurrency tests",
             is_available=True,
         )
+
+
+    def test_database_rejects_overlapping_active_bookings(self):
+        check_in = timezone.localdate() + timedelta(days=20)
+        check_out = check_in + timedelta(days=3)
+
+        Booking.objects.create(
+            user=self.customer1,
+            room=self.room,
+            check_in=check_in,
+            check_out=check_out,
+            guests=2,
+            price_per_night=2500,
+            total_price=7500,
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Booking.objects.create(
+                    user=self.customer2,
+                    room=self.room,
+                    check_in=check_in + timedelta(days=1),
+                    check_out=check_out + timedelta(days=1),
+                    guests=2,
+                    price_per_night=2500,
+                    total_price=7500,
+                )
+
+        self.assertEqual(
+            Booking.objects.filter(room=self.room).count(),
+            1,
+        )
+
+
+
+
 
     def test_concurrent_overlapping_bookings_create_at_most_one(self):
         barrier = Barrier(2)
