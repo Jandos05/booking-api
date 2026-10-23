@@ -1,20 +1,16 @@
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.response import Response
-from rest_framework import status
-from django.db.models import Exists, OuterRef, Subquery
-from django.utils.dateparse import parse_date
-from django.db import transaction
-from hotels.models import Room
-from rest_framework.exceptions import ValidationError
-from rest_framework.exceptions import PermissionDenied
-from django.db.models.deletion import ProtectedError
-from rest_framework.exceptions import APIException
+
 from decimal import Decimal, InvalidOperation
 
-from .models import Hotel, Room
+from django.db.models import Exists, OuterRef, Subquery
+from django.db.models.deletion import ProtectedError
+from django.utils.dateparse import parse_date
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.response import Response
+
 from bookings.models import Booking
+from .models import Hotel, Room
 from .permissions import IsHotelManagerOrReadOnly
 from .serializers import HotelSerializer, RoomSerializer
 
@@ -246,7 +242,7 @@ class HotelViewSet(viewsets.ModelViewSet):
                 request.user.role != "admin"
                 and hotel.manager != request.user
         ):
-            from rest_framework.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 'You can only add rooms to your own hotels.'
             )
@@ -288,7 +284,7 @@ class RoomViewSet(viewsets.ModelViewSet):
             self.request.user.role != "admin"
             and hotel.manager != self.request.user
         ):
-            from rest_framework.exceptions import PermissionDenied
+
             raise PermissionDenied(
                 'You can only add rooms to your own hotels.'
             )

@@ -555,7 +555,6 @@ class ConcurrentBookingTests(TransactionTestCase):
 
         def create_booking(user_id):
             from django.db import close_old_connections
-            from rest_framework.test import APIClient
 
             close_old_connections()
             try:
