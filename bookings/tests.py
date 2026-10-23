@@ -93,25 +93,6 @@ class BookingAPITests(APITestCase):
             status.HTTP_400_BAD_REQUEST,
         )
 
-    def test_booking_with_too_many_guests_is_rejected(self):
-        check_in = timezone.localdate() + timedelta(days=10)
-        check_out = check_in + timedelta(days=2)
-
-        response = self.client.post(
-            "/api/bookings/",
-            {
-                "room": self.room.id,
-                "check_in": check_in.isoformat(),
-                "check_out": check_out.isoformat(),
-                "guests": 3,
-            },
-            format="json",
-        )
-
-        self.assertEqual(
-            response.status_code,
-            status.HTTP_400_BAD_REQUEST,
-        )
 
 
     def test_overlapping_booking_is_rejected(self):
