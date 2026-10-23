@@ -27,20 +27,49 @@ REST API для бронирования гостиниц и номеров на
    ```
 
 4. Настройте значения в `.env`, включая секретный ключ и параметры PostgreSQL.
-5. Создайте базу данных PostgreSQL с именем, указанным в `DB_NAME`.
-6. Примените миграции:
+### Запуск PostgreSQL через Docker
+
+Убедитесь, что Docker Desktop запущен. Создайте контейнер PostgreSQL:
+
+```bash
+docker run --name booking_api_db \
+  -e POSTGRES_DB=booking_api \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=booking_local_2026 \
+  -p 5433:5432 \
+  -d postgres:17
+```
+
+В локальном файле `.env` укажите параметры подключения:
+
+```dotenv
+DB_NAME=booking_api
+DB_USER=postgres
+DB_PASSWORD=booking_local_2026
+DB_HOST=localhost
+DB_PORT=5433
+```
+
+Убедитесь, что контейнер запущен:
+
+```bash
+docker ps
+```
+
+Если контейнер `booking_api_db` уже существует, повторно создавать его не нужно. Запустите его командой `docker start booking_api_db`, если он остановлен.
+5. Примените миграции:
 
    ```bash
    python manage.py migrate
    ```
 
-7. Создайте администратора:
+6. Создайте администратора:
 
    ```bash
    python manage.py createsuperuser
    ```
 
-8. Запустите сервер:
+7. Запустите сервер:
 
    ```bash
    python manage.py runserver
