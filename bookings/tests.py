@@ -349,6 +349,55 @@ class BookingAPITests(APITestCase):
         )
         self.assertEqual(Booking.objects.count(), 0)
 
+
+
+    def test_booking_with_invalid_check_in_date_returns_400(self):
+        check_out = timezone.localdate() + timedelta(days=12)
+
+        response = self.client.post(
+            "/api/bookings/",
+            {
+                "room": self.room.id,
+                "check_in": "abc",
+                "check_out": str(check_out),
+                "guests": 2,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(Booking.objects.count(), 0)
+
+
+
+    def test_booking_with_array_body_returns_400(self):
+        response = self.client.post(
+            "/api/bookings/",
+            [
+                {
+                    "room": self.room.id,
+                    "check_in": str(
+                        timezone.localdate() + timedelta(days=10)
+                    ),
+                    "check_out": str(
+                        timezone.localdate() + timedelta(days=12)
+                    ),
+                    "guests": 2,
+                }
+            ],
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(Booking.objects.count(), 0)
+
+
     def test_booking_cannot_be_updated_or_deleted_directly(self):
         check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)

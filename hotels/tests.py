@@ -157,14 +157,15 @@ class HotelAPITests(APITestCase):
         room.refresh_from_db()
         self.assertEqual(room.hotel_id, own_hotel.id)
 
+
     def test_manager_can_add_room_to_own_hotel_through_nested_endpoint(self):
         own_hotel = Hotel.objects.create(
             manager=self.manager,
-            name="My Hotel",
-            description="My hotel",
+            name="Nested Hotel",
+            description="Hotel for nested room test",
             country="Kyrgyzstan",
             city="Bishkek",
-            address="My hotel address",
+            address="Nested hotel address",
             stars=3,
         )
 
@@ -174,17 +175,57 @@ class HotelAPITests(APITestCase):
                 "room_type": "double",
                 "room_number": "301",
                 "capacity": 2,
-                "price_per_night": "3000.00",
-                "description": "New room",
+                "price_per_night": "2500.00",
+                "description": "Room created through nested endpoint",
                 "is_available": True,
             },
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            msg=str(response.data),
+        )
         self.assertEqual(response.data["hotel"], own_hotel.id)
         self.assertTrue(
             own_hotel.rooms.filter(room_number="301").exists()
+        )
+
+
+
+    def test_manager_can_add_room_through_nested_endpoint_with_form_data(self):
+        own_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="Form Data Hotel",
+            description="Hotel for form-data test",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="Form data address",
+            stars=3,
+        )
+
+        response = self.client.post(
+            f"/api/hotels/{own_hotel.id}/rooms/",
+            {
+                "room_type": "double",
+                "room_number": "302",
+                "capacity": 2,
+                "price_per_night": "3000.00",
+                "description": "Room created with form data",
+                "is_available": "true",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            msg=str(response.data),
+        )
+        self.assertEqual(response.data["hotel"], own_hotel.id)
+        self.assertTrue(
+            own_hotel.rooms.filter(room_number="302").exists()
         )
 
 
