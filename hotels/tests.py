@@ -1,10 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
-from datetime import date, timedelta
 
 from bookings.models import Booking
-
 from hotels.models import Hotel, Room
 
 
@@ -258,7 +259,7 @@ class HotelAPITests(APITestCase):
             is_available=True,
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -292,7 +293,7 @@ class HotelAPITests(APITestCase):
             is_available=True,
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -342,7 +343,7 @@ class HotelAPITests(APITestCase):
             is_available=True,
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -694,7 +695,7 @@ class HotelAPITests(APITestCase):
             role="customer",
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(

@@ -1,15 +1,15 @@
-
-from datetime import date
-from datetime import date, timedelta
-from django.contrib.auth import get_user_model
-from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
-from django.test import TransactionTestCase
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from threading import Barrier
 
-from hotels.models import Hotel, Room
+from django.contrib.auth import get_user_model
+from django.test import TransactionTestCase
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase, APIClient
+
 from bookings.models import Booking
+from hotels.models import Hotel, Room
 
 
 User = get_user_model()
@@ -53,7 +53,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_create_booking_calculates_total_price(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=3)
 
         response = self.client.post(
@@ -74,7 +74,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_booking_with_too_many_guests_is_rejected(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         response = self.client.post(
@@ -94,7 +94,7 @@ class BookingAPITests(APITestCase):
         )
 
     def test_booking_with_too_many_guests_is_rejected(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         response = self.client.post(
@@ -115,7 +115,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_overlapping_booking_is_rejected(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=3)
 
         first_response = self.client.post(
@@ -159,7 +159,7 @@ class BookingAPITests(APITestCase):
             role="customer",
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -184,7 +184,7 @@ class BookingAPITests(APITestCase):
         self.room.is_available = False
         self.room.save()
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         response = self.client.post(
@@ -206,7 +206,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_customer_can_cancel_own_booking(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         booking = Booking.objects.create(
@@ -230,7 +230,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_cancelled_booking_does_not_block_new_booking(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -266,7 +266,7 @@ class BookingAPITests(APITestCase):
             password="testpass123",
         )
 
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         booking = Booking.objects.create(
@@ -289,7 +289,7 @@ class BookingAPITests(APITestCase):
         self.assertEqual(booking.status, Booking.Status.PENDING)
 
     def test_manager_sees_only_bookings_for_own_hotels(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -347,7 +347,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_booking_with_invalid_room_id_returns_400(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         response = self.client.post(
@@ -368,7 +368,7 @@ class BookingAPITests(APITestCase):
         self.assertEqual(Booking.objects.count(), 0)
 
     def test_booking_cannot_be_updated_or_deleted_directly(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         booking = Booking.objects.create(
@@ -406,7 +406,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_manager_sees_bookings_for_own_hotel(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=2)
 
         Booking.objects.create(
@@ -428,7 +428,7 @@ class BookingAPITests(APITestCase):
 
 
     def test_adjacent_bookings_are_allowed(self):
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         middle_date = check_in + timedelta(days=2)
         second_check_out = middle_date + timedelta(days=2)
 
@@ -508,7 +508,7 @@ class ConcurrentBookingTests(TransactionTestCase):
 
     def test_concurrent_overlapping_bookings_create_at_most_one(self):
         barrier = Barrier(2)
-        check_in = date.today() + timedelta(days=10)
+        check_in = timezone.localdate() + timedelta(days=10)
         check_out = check_in + timedelta(days=3)
 
         def create_booking(user_id):
