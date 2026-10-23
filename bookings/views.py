@@ -1,12 +1,11 @@
-from .services import BookingError, create_booking
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .permissions import BookingPermission
-
 
 from .models import Booking
+from .permissions import BookingPermission
 from .serializers import BookingSerializer
+from .services import BookingError, create_booking
 
 
 class BookingViewSet(

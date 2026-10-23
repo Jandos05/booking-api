@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.db import models
-from django.db.models import F, Func, Q, Value
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateRangeField, RangeOperators
+from django.db import models
+from django.db.models import F, Func, Q, Value
 
 
 class Booking(models.Model):

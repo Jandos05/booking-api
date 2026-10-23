@@ -3,8 +3,8 @@
 import django.contrib.postgres.constraints
 import django.contrib.postgres.fields.ranges
 from django.conf import settings
-from django.db import migrations, models
 from django.contrib.postgres.operations import BtreeGistExtension
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):

@@ -7,11 +7,10 @@ from django.db import IntegrityError, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from bookings.models import Booking
 from hotels.models import Hotel, Room
-
 
 User = get_user_model()
 
@@ -576,17 +575,16 @@ class ConcurrentBookingTests(TransactionTestCase):
             total_price=7500,
         )
 
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                Booking.objects.create(
-                    user=self.customer2,
-                    room=self.room,
-                    check_in=check_in + timedelta(days=1),
-                    check_out=check_out + timedelta(days=1),
-                    guests=2,
-                    price_per_night=2500,
-                    total_price=7500,
-                )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Booking.objects.create(
+                user=self.customer2,
+                room=self.room,
+                check_in=check_in + timedelta(days=1),
+                check_out=check_out + timedelta(days=1),
+                guests=2,
+                price_per_night=2500,
+                total_price=7500,
+            )
 
         self.assertEqual(
             Booking.objects.filter(room=self.room).count(),

@@ -1,13 +1,13 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from bookings.models import Booking
 from hotels.models import Hotel, Room
-
 
 User = get_user_model()
 
@@ -286,7 +286,7 @@ class HotelAPITests(APITestCase):
 
 
     def test_hotel_search_excludes_fully_booked_room(self):
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from bookings.models import Booking
 
@@ -360,7 +360,7 @@ class HotelAPITests(APITestCase):
 
 
     def test_hotel_search_includes_hotel_if_another_room_is_free(self):
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from bookings.models import Booking
 
@@ -776,7 +776,7 @@ class HotelAPITests(APITestCase):
             price_per_night="3000.00",
         )
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(IntegrityError):
             Room.objects.create(
                 hotel=own_hotel,
                 room_type="single",

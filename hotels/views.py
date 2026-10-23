@@ -10,6 +10,7 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 from rest_framework.response import Response
 
 from bookings.models import Booking
+
 from .models import Hotel, Room
 from .permissions import IsHotelManagerOrReadOnly
 from .serializers import HotelSerializer, RoomSerializer
@@ -49,9 +50,7 @@ class HotelViewSet(viewsets.ModelViewSet):
                     or field == '-'
                     or field.startswith('--')
                     or (
-                        field[1:]
-                        if field.startswith('-')
-                        else field
+                        field.removeprefix('-')
                     ) not in allowed_fields
                 )
             ]
