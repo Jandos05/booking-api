@@ -290,19 +290,23 @@ class RoomViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
-
     def perform_update(self, serializer):
-        hotel = serializer.validated_data.get(
+        user = self.request.user
+        current_hotel = serializer.instance.hotel
+        target_hotel = serializer.validated_data.get(
             "hotel",
-            serializer.instance.hotel,
+            current_hotel,
         )
 
-        if (
-            self.request.user.role != "admin"
-            and hotel.manager != self.request.user
-        ):
-            raise PermissionDenied(
-                "You can only move rooms to your own hotels."
-            )
+        if user.role != "admin":
+            if current_hotel.manager != user:
+                raise PermissionDenied(
+                    "You can only update rooms in your own hotels."
+                )
+
+            if target_hotel.manager != user:
+                raise PermissionDenied(
+                    "You can only move rooms to your own hotels."
+                )
 
         serializer.save()

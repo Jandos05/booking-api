@@ -157,6 +157,41 @@ class HotelAPITests(APITestCase):
         room.refresh_from_db()
         self.assertEqual(room.hotel_id, own_hotel.id)
 
+    def test_manager_cannot_take_another_managers_room(self):
+        own_hotel = Hotel.objects.create(
+            manager=self.manager,
+            name="My Hotel",
+            description="My hotel",
+            country="Kyrgyzstan",
+            city="Bishkek",
+            address="My hotel address",
+            stars=3,
+        )
+
+        foreign_room = Room.objects.create(
+            hotel=self.hotel,
+            room_type="double",
+            room_number="601",
+            capacity=2,
+            price_per_night="3000.00",
+            description="Foreign room",
+            is_available=True,
+        )
+
+        response = self.client.patch(
+            f"/api/rooms/{foreign_room.id}/",
+            {"hotel": own_hotel.id},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        foreign_room.refresh_from_db()
+        self.assertEqual(foreign_room.hotel_id, self.hotel.id)
+
 
     def test_manager_can_add_room_to_own_hotel_through_nested_endpoint(self):
         own_hotel = Hotel.objects.create(
@@ -821,3 +856,41 @@ class HotelAPITests(APITestCase):
         )
 
         self.assertIsNotNone(room.pk)
+
+    def test_manager_cannot_delete_another_managers_room(self):
+        foreign_room = Room.objects.create(
+            hotel=self.hotel,
+            room_type="double",
+            room_number="602",
+            capacity=2,
+            price_per_night="3000.00",
+            description="Foreign room",
+            is_available=True,
+        )
+
+        response = self.client.delete(
+            f"/api/rooms/{foreign_room.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        self.assertTrue(
+            Room.objects.filter(pk=foreign_room.pk).exists()
+        )
+
+    def test_manager_cannot_delete_another_managers_hotel(self):
+        response = self.client.delete(
+            f"/api/hotels/{self.hotel.id}/"
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        self.assertTrue(
+            Hotel.objects.filter(pk=self.hotel.pk).exists()
+        )
